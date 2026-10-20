@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Rondines - Vigilancia (Supabase)</title>
+  
+  <!-- Librería externa para escaneo de QR -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <!-- SDK oficial de Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --color-sky: #9FE7F5;
+      --color-blue: #429EBD;
+      --color-navy: #053F5C;
+      --color-amber: #F7AD19;
+      --color-bg: #F4F8FA;
+      --color-card: #FFFFFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--color-bg);
+      color: var(--color-navy);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    nav {
+      background-color: var(--color-navy);
+      display: flex;
+      justify-content: space-around;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    nav button {
+      flex: 1;
+      padding: 16px;
+      border: none;
+      background: none;
+      color: var(--color-sky);
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-bottom: 4px solid transparent;
+    }
+
+    nav button.active {
+      color: #FFFFFF;
+      background-color: rgba(255, 255, 255, 0.08);
+      border-bottom: 4px solid var(--color-amber);
+    }
+
+    main {
+      flex: 1;
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .card {
+      background-color: var(--color-card);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(5, 63, 92, 0.08);
+      border-left: 5px solid var(--color-blue);
+    }
+
+    h2 {
+      color: var(--color-navy);
+      margin-bottom: 15px;
+      font-size: 1.3rem;
+    }
+
+    .btn {
+      background-color: var(--color-blue);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+      transition: background 0.2s ease;
+    }
+
+    .btn:hover { background-color: var(--color-navy); }
+
+    .btn-amber {
+      background-color: var(--color-amber);
+      color: var(--color-navy);
+    }
+    .btn-amber:hover { background-color: #e09b12; }
+
+    .btn-excel {
+      background-color: #217346;
+      color: white;
+    }
+    .btn-excel:hover { background-color: #1e5c37; }
+
+    .input-field {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border: 2px solid var(--color-blue);
+      border-radius: 8px;
+      background-color: white;
+      font-size: 1rem;
+      color: var(--color-navy);
+      font-weight: 600;
+    }
+
+    #reader {
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      background-color: #000;
+      margin-top: 10px;
+    }
+
+    .status-msg {
+      padding: 12px;
+      border-radius: 8px;
+      background-color: var(--color-sky);
+      color: var(--color-navy);
+      margin-top: 15px;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+    }
+
+    .table-responsive { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background-color: white;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #EAEAEA;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background-color: var(--color-navy);
+      color: var(--color-sky);
+      text-transform: uppercase;
+      font-size: 0.8rem;
+      letter-spacing: 0.5px;
+    }
+
+    tr:hover { background-color: rgba(159, 231, 245, 0.15); }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      background-color: var(--color-amber);
+      color: var(--color-navy);
+    }
+
+    .thumbnail {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid var(--color-blue);
+      cursor: pointer;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      margin-bottom: 15px;
+    }
+
+    .error-text {
+      color: #d9534f;
+      font-weight: bold;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .guard-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: var(--color-sky);
+      color: var(--color-navy);
+      padding: 8px 14px;
+      border-radius: 8px;
+      margin: 6px 0;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+
+    .guard-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      border: none;
+      background: white;
+      padding: 4px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+
+    .btn-edit { color: var(--color-navy); border: 1px solid var(--color-blue); }
+    .btn-delete { color: white; background-color: #d9534f; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <button id="btn-tab1" class="active" onclick="switchTab('tab1')">📷 1. Modo Vigilante</button>
+    <button id="btn-tab2" onclick="switchTab('tab2')">🔒 2. Panel y Tiempos</button>
+  </nav>
+
+  <main>
+    <!-- HOJA 1: MODO VIGILANTE -->
+    <section id="tab1" class="tab-content active">
+      <div class="card" style="border-left-color: var(--color-amber);">
+        <h2>Control de Rondín</h2>
+        <label for="guard-select"><b>Seleccione su Nombre:</b></label>
+        <select id="guard-select" class="input-field">
+          <option value="" disabled selected>Cargando lista de vigilantes...</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <h2>Paso 1: Escanear Código QR</h2>
+        <button class="btn btn-amber" onclick="startScanner()">Activar Cámara / Escanear QR</button>
+        <div id="reader"></div>
+        <div id="scan-result" class="status-msg"></div>
+      </div>
+
+      <div id="evidence-section" class="card" style="display: none;">
+        <h2>Paso 2: Foto de Evidencia (Opcional)</h2>
+        <p>Punto detectado: <strong id="current-checkpoint" style="color: var(--color-blue);">---</strong></p>
+        
+        <video id="webcam" autoplay playsinline style="width:100%; border-radius:8px; margin-top:10px;"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        
+        <button class="btn" onclick="takePhoto()">📷 Capturar Evidencia</button>
+        <button class="btn btn-amber" onclick="saveRecord(null)">Saltar Foto y Guardar</button>
+      </div>
+    </section>
+
+    <!-- HOJA 2: MONITOREO (PROTEGIDA) -->
+    <section id="tab2" class="tab-content">
+      
+      <div id="login-card" class="card" style="border-left-color: var(--color-navy); max-width: 400px; margin: 40px auto;">
+        <h2>Acceso Administrativo</h2>
+        <p style="margin-bottom: 15px; color: #666; font-size: 0.85rem;">Ingrese credenciales de administrador.</p>
+        
+        <label for="login-user"><b>Usuario:</b></label>
+        <input type="text" id="login-user" class="input-field" placeholder="Ingrese usuario">
+        
+        <label for="login-pass"><b>Contraseña:</b></label>
+        <input type="password" id="login-pass" class="input-field" placeholder="Ingrese contraseña">
+        
+        <button class="btn" onclick="authenticate()">Iniciar Sesión</button>
+        <p id="login-error" class="error-text">Usuario o contraseña incorrectos.</p>
+      </div>
+
+      <div id="admin-panel" style="display: none;">
+        <div class="card" style="border-left-color: var(--color-amber);">
+          <h2>Gestión del Personal de Vigilancia</h2>
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="new-guard-name" class="input-field" style="margin-bottom: 0;" placeholder="Nombre completo del vigilante">
+            <button class="btn btn-amber" style="width: auto; margin-top: 0; white-space: nowrap;" onclick="addGuard()">+ Agregar</button>
+          </div>
+          <div id="guards-list"></div>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Bitácora de Tiempos y Evidencia</h2>
+            <button class="btn btn-amber" style="width: auto; padding: 6px 12px; margin: 0;" onclick="logout()">Cerrar Sesión</button>
+          </div>
+          <p style="margin-bottom: 15px; color: #666; font-size: 0.9rem;">Sincronizado en tiempo real con Supabase Cloud.</p>
+
+          <div class="action-bar">
+            <button class="btn btn-excel" onclick="exportToExcel()">📊 Descargar en Excel (.csv)</button>
+            <button class="btn" style="background-color: #d9534f;" onclick="clearLogs()">Limpiar Historial</button>
+          </div>
+          
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Vigilante</th>
+                  <th>Punto / Ubicación</th>
+                  <th>Fecha y Hora</th>
+                  <th>Evidencia</th>
+                </tr>
+              </thead>
+              <tbody id="logs-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    // CONFIGURACIÓN DE CONEXIÓN CON TUS CREDENCIALES
+    const SUPABASE_URL = "https://waueklmhwysbeqmbbmve.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhdWVrbG1od3lzYmVxbWJibXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MTY0MzYsImV4cCI6MjEwNzQ5MjQzNn0.tRM1m_2Atx8bujtk7udNTF8oE6nbnXSHFtQJXmaqV3E";
+
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let html5QrcodeScanner = null;
+    let currentScannedPoint = "";
+    let capturedImageData = "";
+    let videoStream = null;
+    let isAuthenticated = false;
+
+    // CREDENCIALES ADMIN (admin / admin123)
+    const USER_HASH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+    const PASS_HASH = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initGuards();
+    });
+
+    // Cargar vigilantes desde Supabase
+    async function initGuards() {
+      const select = document.getElementById('guard-select');
+      
+      const { data: guards, error } = await _supabase
+        .from('rondin_guards')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (error) {
+        console.error("Error al obtener vigilantes:", error);
+        return;
+      }
+
+      select.innerHTML = '<option value="" disabled selected>-- Seleccione un oficial --</option>';
+      guards.forEach(g => {
+        const option = document.createElement('option');
+        option.value = g.name;
+        option.textContent = g.name;
+        select.appendChild(option);
+      });
+
+      renderAdminGuards(guards);
+    }
+
+    function renderAdminGuards(guards) {
+      const container = document.getElementById('guards-list');
+      container.innerHTML = "";
+
+      if (!guards || guards.length === 0) {
+        container.innerHTML = `<p style="color: #777; font-style: italic;">No hay vigilantes registrados.</p>`;
+        return;
+      }
+
+      guards.forEach(g => {
+        const item = document.createElement('div');
+        item.className = 'guard-item';
+        item.innerHTML = `
+          <span>${g.name}</span>
+          <div class="guard-actions">
+            <button class="btn-icon btn-edit" onclick="editGuard(${g.id}, '${g.name}')">✏️ Editar</button>
+            <button class="btn-icon btn-delete" onclick="removeGuard(${g.id}, '${g.name}')">🗑️ Eliminar</button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    async function addGuard() {
+      const input = document.getElementById('new-guard-name');
+      const name = input.value.trim();
+      if (!name) return;
+
+      const { error } = await _supabase.from('rondin_guards').insert([{ name }]);
+      if (error) alert("Error al agregar vigilante: " + error.message);
+      
+      input.value = "";
+      initGuards();
+    }
+
+    async function editGuard(id, currentName) {
+      const newName = prompt("Editar nombre del vigilante:", currentName);
+      if (newName !== null && newName.trim() !== "") {
+        const { error } = await _supabase.from('rondin_guards').update({ name: newName.trim() }).eq('id', id);
+        if (error) alert("Error al actualizar: " + error.message);
+        initGuards();
+      }
+    }
+
+    async function removeGuard(id, name) {
+      if (confirm(`¿Eliminar a "${name}" de la lista?`)) {
+        const { error } = await _supabase.from('rondin_guards').delete().eq('id', id);
+        if (error) alert("Error al eliminar: " + error.message);
+        initGuards();
+      }
+    }
+
+    async function hashString(str) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(str);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function authenticate() {
+      const userIn = document.getElementById('login-user').value;
+      const passIn = document.getElementById('login-pass').value;
+      const errorMsg = document.getElementById('login-error');
+
+      const userHashed = await hashString(userIn);
+      const passHashed = await hashString(passIn);
+
+      if (userHashed === USER_HASH && passHashed === PASS_HASH) {
+        isAuthenticated = true;
+        errorMsg.style.display = 'none';
+        document.getElementById('login-card').style.display = 'none';
+        document.getElementById('admin-panel').style.display = 'block';
+        document.getElementById('login-user').value = '';
+        document.getElementById('login-pass').value = '';
+        loadLogs();
+      } else {
+        errorMsg.style.display = 'block';
+      }
+    }
+
+    function logout() {
+      isAuthenticated = false;
+      document.getElementById('admin-panel').style.display = 'none';
+      document.getElementById('login-card').style.display = 'block';
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+
+      document.getElementById(tabId).classList.add('active');
+      if(tabId === 'tab1') document.getElementById('btn-tab1').classList.add('active');
+      if(tabId === 'tab2') {
+        document.getElementById('btn-tab2').classList.add('active');
+        stopCamera();
+        stopScanner();
+        if (isAuthenticated) loadLogs();
+      }
+    }
+
+    function startScanner() {
+      const guardSelect = document.getElementById('guard-select');
+      if (!guardSelect.value) {
+        alert("Por favor seleccione su nombre antes de iniciar el escaneo.");
+        return;
+      }
+
+      const resultDiv = document.getElementById('scan-result');
+      resultDiv.style.display = 'none';
+
+      if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5Qrcode("reader");
+      }
+
+      html5QrcodeScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+          currentScannedPoint = decodedText;
+          resultDiv.innerText = `✓ QR Detectado: ${decodedText}`;
+          resultDiv.style.display = 'block';
+          stopScanner();
+          openCameraForEvidence();
+        },
+        () => {}
+      ).catch(err => alert("Error al abrir la cámara: " + err));
+    }
+
+    function stopScanner() {
+      if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+        html5QrcodeScanner.stop().then(() => {
+          document.getElementById('reader').innerHTML = '';
+        });
+      }
+    }
+
+    async function openCameraForEvidence() {
+      document.getElementById('evidence-section').style.display = 'block';
+      document.getElementById('current-checkpoint').innerText = currentScannedPoint;
+      
+      const video = document.getElementById('webcam');
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = videoStream;
+      } catch (err) {
+        console.warn("Sin cámara para foto:", err);
+      }
+    }
+
+    function stopCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+    }
+
+    function takePhoto() {
+      const video = document.getElementById('webcam');
+      const canvas = document.getElementById('canvas');
+      canvas.width = video.videoWidth || 300;
+      canvas.height = video.videoHeight || 150;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      saveRecord(canvas.toDataURL('image/png'));
+    }
+
+    // Guardar directamente en Supabase Cloud
+    async function saveRecord(imageData) {
+      const guardName = document.getElementById('guard-select').value;
+      const timestamp = new Date().toLocaleString('es-MX', { 
+        year: 'numeric', month: '2-digit', day: '2-digit', 
+        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+      });
+
+      const { error } = await _supabase.from('rondin_logs').insert([{
+        guard: guardName,
+        location: currentScannedPoint,
+        time: timestamp,
+        image: imageData
+      }]);
+
+      if (error) {
+        alert("Error guardando en la nube: " + error.message);
+        return;
+      }
+
+      stopCamera();
+      document.getElementById('evidence-section').style.display = 'none';
+      alert(`¡Punto "${currentScannedPoint}" guardado en la nube con éxito!`);
+      
+      currentScannedPoint = "";
+      capturedImageData = "";
+    }
+
+    // Cargar bitácora desde Supabase
+    async function loadLogs() {
+      const tbody = document.getElementById('logs-table-body');
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Cargando datos...</td></tr>';
+
+      const { data: logs, error } = await _supabase
+        .from('rondin_logs')
+        .select('*')
+        .order('id', { ascending: false });
+
+      if (error) {
+        alert("Error cargando bitácora: " + error.message);
+        return;
+      }
+
+      tbody.innerHTML = "";
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888;">No hay rondines registrados aún.</td></tr>`;
+        return;
+      }
+
+      logs.forEach(log => {
+        const tr = document.createElement('tr');
+        const imgHtml = log.image 
+          ? `<img src="${log.image}" class="thumbnail" onclick="window.open('${log.image}')" title="Clic para ampliar"/>` 
+          : `<span style="color:#aaa; font-style:italic;">Sin Foto</span>`;
+
+        tr.innerHTML = `
+          <td><strong>${log.guard}</strong></td>
+          <td><span class="badge">${log.location}</span></td>
+          <td>${log.time}</td>
+          <td>${imgHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function exportToExcel() {
+      const { data: logs, error } = await _supabase.from('rondin_logs').select('*').order('id', { ascending: false });
+
+      if (error || !logs || logs.length === 0) {
+        alert("No hay registros para exportar.");
+        return;
+      }
+
+      let csvContent = "\uFEFF";
+      csvContent += "Vigilante,Punto/Ubicacion,Fecha y Hora,Tiene Evidencia\n";
+
+      logs.forEach(log => {
+        const hasPhoto = log.image ? "SI" : "NO";
+        csvContent += `"${log.guard}","${log.location}","${log.time}","${hasPhoto}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Reporte_Rondines_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    async function clearLogs() {
+      if (confirm("¿Seguro que deseas borrar el historial de la nube?")) {
+        const { error } = await _supabase.from('rondin_logs').delete().neq('id', 0);
+        if (error) alert("Error eliminando historial: " + error.message);
+        loadLogs();
+      }
+    }
+  </script>
+</body>
+</html>
